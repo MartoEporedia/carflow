@@ -66,9 +66,10 @@ class KeywordDictionary {
         return ExpenseCategory.UNKNOWN
     }
 
-    fun getFuelType(keyword: String): FuelType? {
-        return FuelType.fromKeyword(keyword)
-    }
+    // TODO: implement fuel type detection if needed
+    // fun getFuelType(keyword: String): FuelType? {
+    //     return FuelType.fromKeyword(keyword)
+    // }
 
     fun addKeywords(category: ExpenseCategory, keywords: Collection<String>) {
         categoryKeywords.getOrPut(category) { mutableSetOf() }

@@ -104,6 +104,8 @@ class ExpenseParser(
             quantity = tokens.quantities.firstOrNull()?.value,
             quantityUnit = tokens.quantities.firstOrNull()?.unit,
             description = descriptionWords.joinToString(" ").trim(),
+            rawInput = input,
+            date = dateResult.parsedDate,
             confidence = confidence,
             warnings = warnings
         )
