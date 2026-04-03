@@ -21,7 +21,8 @@ class VehicleRepository @Inject constructor(
         model: String = "",
         year: Int? = null,
         licensePlate: String = "",
-        fuelType: String = ""
+        fuelType: String = "",
+        odometerKm: Double = 0.0
     ): VehicleEntity {
         val vehicle = VehicleEntity(
             id = UUID.randomUUID().toString(),
@@ -30,6 +31,7 @@ class VehicleRepository @Inject constructor(
             model = model,
             year = year,
             licensePlate = licensePlate,
+            odometerKm = odometerKm,
             fuelType = fuelType
         )
         vehicleDao.insert(vehicle)
@@ -45,4 +47,10 @@ class VehicleRepository @Inject constructor(
     }
 
     suspend fun count(): Int = vehicleDao.count()
+
+    fun getAllVehicles(): Flow<List<VehicleEntity>> = getAllActive()
+
+    suspend fun insertVehicle(vehicle: VehicleEntity) {
+        vehicleDao.insert(vehicle)
+    }
 }

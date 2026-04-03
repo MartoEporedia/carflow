@@ -54,6 +54,7 @@ android {
 
 dependencies {
     implementation(project(":shared:parser"))
+    implementation(project(":shared:network"))
 
     // Compose BOM
     val composeBom = platform("androidx.compose:compose-bom:2024.01.00")
@@ -84,6 +85,9 @@ dependencies {
 
     // Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+
+    // EncryptedSharedPreferences
+    implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
     // Core
     implementation("androidx.core:core-ktx:1.12.0")
