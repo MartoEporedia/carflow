@@ -44,7 +44,7 @@ object Normalizer {
         text = text.replace(Regex("\\blitri\\b"), "L")
         text = text.replace(Regex("\\blitro\\b"), "L")
         text = text.replace(Regex("\\bliters?\\b"), "L")
-        text = text.replace(Regex("\\bkwh\\b", RegexOption.IGNORE_CASE), "kWh")
+        text = text.replace("kwh", "kWh")
 
         // Normalize "oggi" (today), "ieri" (yesterday)
         // These are kept as-is for the date parser to handle
