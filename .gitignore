@@ -17,3 +17,8 @@ local.properties
 /shared/network/build
 *.log
 .env
+
+# Gradle distributions (never commit binaries)
+gradle-*/
+gradle-*-bin.zip
+gradle-*-all.zip
