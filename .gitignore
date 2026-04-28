@@ -14,5 +14,6 @@ local.properties
 *.dex
 /app/build
 /shared/parser/build
+/shared/network/build
 *.log
 .env

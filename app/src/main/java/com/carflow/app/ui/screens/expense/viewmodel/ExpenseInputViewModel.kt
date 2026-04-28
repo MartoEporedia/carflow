@@ -9,15 +9,78 @@ import com.carflow.app.data.settings.LlmSettings
 import com.carflow.network.llm.ExpenseParserStrategy
 import com.carflow.network.llm.LlmMode
 import com.carflow.parser.ExpenseParser
+import com.carflow.parser.model.ExpenseCategory
+import com.carflow.parser.model.FuelType
 import com.carflow.parser.model.ParsedExpense
+import com.carflow.parser.model.QuantityUnit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.util.*
+import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
+
+// --- Supporting types ---
+
+sealed class SaveResult {
+    object Success : SaveResult()
+    data class Error(val message: String) : SaveResult()
+}
+
+data class EditableExpense(
+    val category: ExpenseCategory,
+    val amount: String,
+    val description: String,
+    val date: Long,
+    val fuelType: FuelType?,
+    val quantityUnit: QuantityUnit?,
+    val quantity: String,
+    val warnings: List<String>
+)
+
+data class NlpTabState(
+    val inputText: String = "",
+    val editedExpense: EditableExpense? = null,
+    val isParsing: Boolean = false,
+    val saveResult: SaveResult? = null
+)
+
+data class FuelFormState(
+    val date: Long = System.currentTimeMillis(),
+    val fuelType: String = "PETROL",
+    val totalPrice: String = "",
+    val pricePerLiter: String = "",
+    val liters: String = "",
+    val odometerKm: String = "",
+    val isFullTank: Boolean = false,
+    val gasStationName: String = "",
+    val gasStationLocation: String = "",
+    val description: String = ""
+)
+
+data class MaintenanceFormState(
+    val date: Long = System.currentTimeMillis(),
+    val amount: String = "",
+    val description: String = ""
+)
+
+data class ExtraFormState(
+    val date: Long = System.currentTimeMillis(),
+    val amount: String = "",
+    val description: String = ""
+)
+
+data class FormTabState(
+    val selectedCategory: ExpenseCategory = ExpenseCategory.FUEL,
+    val fuelState: FuelFormState = FuelFormState(),
+    val maintenanceState: MaintenanceFormState = MaintenanceFormState(),
+    val extraState: ExtraFormState = ExtraFormState(),
+    val saveResult: SaveResult? = null
+)
 
 @HiltViewModel
 class ExpenseInputViewModel @Inject constructor(
@@ -28,11 +91,11 @@ class ExpenseInputViewModel @Inject constructor(
     private val vehicleRepository: VehicleRepository
 ) : ViewModel() {
 
-    private val _parsedExpense = MutableStateFlow<ParsedExpense?>(null)
-    val parsedExpense: StateFlow<ParsedExpense?> = _parsedExpense
+    private val _nlpState = MutableStateFlow(NlpTabState())
+    val nlpState: StateFlow<NlpTabState> = _nlpState.asStateFlow()
 
-    private val _isParsing = MutableStateFlow(false)
-    val isParsing: StateFlow<Boolean> = _isParsing
+    private val _formState = MutableStateFlow(FormTabState())
+    val formState: StateFlow<FormTabState> = _formState.asStateFlow()
 
     private val _vehicles = MutableStateFlow<List<VehicleEntity>>(emptyList())
     val vehicles: StateFlow<List<VehicleEntity>> = _vehicles.asStateFlow()
@@ -43,22 +106,127 @@ class ExpenseInputViewModel @Inject constructor(
 
     private fun loadVehicles() {
         viewModelScope.launch {
-            vehicleRepository.getAllVehicles().collect { vehicleList ->
-                _vehicles.value = vehicleList
+            vehicleRepository.getAllVehicles().collect { _vehicles.value = it }
+        }
+    }
+
+    // --- NLP commands ---
+
+    fun updateNlpInput(text: String) {
+        _nlpState.value = _nlpState.value.copy(inputText = text)
+    }
+
+    fun parseExpense() {
+        val input = _nlpState.value.inputText
+        if (input.isBlank()) return
+        viewModelScope.launch {
+            _nlpState.value = _nlpState.value.copy(isParsing = true, editedExpense = null)
+            try {
+                val result = getActiveParser().parse(input)
+                _nlpState.value = _nlpState.value.copy(
+                    isParsing = false,
+                    editedExpense = result.toEditable()
+                )
+            } catch (e: Exception) {
+                _nlpState.value = _nlpState.value.copy(
+                    isParsing = false,
+                    saveResult = SaveResult.Error("Impossibile analizzare l'input. Riprova.")
+                )
             }
         }
     }
 
-    fun parseExpense(input: String) {
+    fun updateEditedExpense(updated: EditableExpense) {
+        _nlpState.value = _nlpState.value.copy(editedExpense = updated)
+    }
+
+    fun confirmParsedExpense() {
+        val expense = _nlpState.value.editedExpense ?: return
+        val amount = expense.amount.toDoubleOrNull() ?: return
         viewModelScope.launch {
-            _isParsing.value = true
             try {
-                val parser = getActiveParser()
-                val result = parser.parse(input)
-                _parsedExpense.value = result
-            } finally {
-                _isParsing.value = false
+                val vehicleId = resolveVehicleId()
+                expenseRepository.create(
+                    vehicleId = vehicleId,
+                    category = expense.category.name,
+                    subcategory = expense.fuelType?.name ?: "",
+                    amount = amount,
+                    quantity = expense.quantity.toDoubleOrNull(),
+                    quantityUnit = expense.quantityUnit?.name,
+                    description = expense.description,
+                    date = expense.date
+                )
+                _nlpState.value = NlpTabState(saveResult = SaveResult.Success)
+            } catch (e: Exception) {
+                _nlpState.value = _nlpState.value.copy(
+                    saveResult = SaveResult.Error("Errore nel salvataggio. Riprova.")
+                )
             }
+        }
+    }
+
+    fun clearNlpSaveResult() {
+        _nlpState.value = _nlpState.value.copy(saveResult = null)
+    }
+
+    // --- Form commands ---
+
+    fun selectCategory(category: ExpenseCategory) {
+        _formState.value = _formState.value.copy(selectedCategory = category)
+    }
+
+    fun updateFuelForm(state: FuelFormState) {
+        _formState.value = _formState.value.copy(fuelState = recalcFuelState(state))
+    }
+
+    fun updateMaintenanceForm(state: MaintenanceFormState) {
+        _formState.value = _formState.value.copy(maintenanceState = state)
+    }
+
+    fun updateExtraForm(state: ExtraFormState) {
+        _formState.value = _formState.value.copy(extraState = state)
+    }
+
+    fun saveFormExpense() {
+        viewModelScope.launch {
+            try {
+                val vehicleId = resolveVehicleId()
+                when (_formState.value.selectedCategory) {
+                    ExpenseCategory.FUEL -> saveFuelFromForm(vehicleId)
+                    ExpenseCategory.MAINTENANCE -> saveMaintenanceFromForm(vehicleId)
+                    ExpenseCategory.EXTRA -> saveExtraFromForm(vehicleId)
+                    ExpenseCategory.UNKNOWN -> return@launch
+                }
+                _formState.value = FormTabState(saveResult = SaveResult.Success)
+            } catch (e: Exception) {
+                _formState.value = _formState.value.copy(
+                    saveResult = SaveResult.Error("Errore nel salvataggio. Riprova.")
+                )
+            }
+        }
+    }
+
+    fun clearFormSaveResult() {
+        _formState.value = _formState.value.copy(saveResult = null)
+    }
+
+    // --- Private helpers ---
+
+    private suspend fun resolveVehicleId(): String {
+        val list = vehicleRepository.getAllVehicles().first()
+        return if (list.isNotEmpty()) {
+            list.first().id
+        } else {
+            val vehicle = VehicleEntity(
+                id = UUID.randomUUID().toString(),
+                name = "Veicolo principale",
+                make = "", model = "", year = null,
+                licensePlate = "", odometerKm = 0.0, fuelType = "",
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis()
+            )
+            vehicleRepository.insertVehicle(vehicle)
+            vehicle.id
         }
     }
 
@@ -73,100 +241,82 @@ class ExpenseInputViewModel @Inject constructor(
         }
     }
 
-    fun clearParsedExpense() {
-        _parsedExpense.value = null
+    private suspend fun saveFuelFromForm(vehicleId: String) {
+        val s = _formState.value.fuelState
+        val total = s.totalPrice.toDoubleOrNull() ?: return
+        expenseRepository.create(
+            vehicleId = vehicleId,
+            category = "FUEL",
+            subcategory = s.fuelType,
+            amount = total,
+            quantity = s.liters.toDoubleOrNull(),
+            quantityUnit = "LITERS",
+            description = s.description,
+            date = s.date,
+            odometerKm = s.odometerKm.toDoubleOrNull(),
+            isFullTank = s.isFullTank,
+            gasStationName = s.gasStationName.ifBlank { null },
+            gasStationLocation = s.gasStationLocation.ifBlank { null },
+            pricePerLiter = s.pricePerLiter.toDoubleOrNull()
+        )
     }
 
-    fun saveExpense(parsed: ParsedExpense) {
-        viewModelScope.launch {
-            val vehiclesList = vehicleRepository.getAllVehicles().first()
-            val vehicleId = if (vehiclesList.isNotEmpty()) {
-                vehiclesList.first().id
-            } else {
-                val defaultVehicle = com.carflow.app.data.entity.VehicleEntity(
-                    id = UUID.randomUUID().toString(),
-                    name = "Veicolo principale",
-                    make = "",
-                    model = "",
-                    year = null,
-                    licensePlate = "",
-                    odometerKm = 0.0,
-                    fuelType = "",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                )
-                vehicleRepository.insertVehicle(defaultVehicle)
-                defaultVehicle.id
-            }
-
-            val expense = com.carflow.app.data.entity.ExpenseEntity(
-                id = UUID.randomUUID().toString(),
-                vehicleId = vehicleId,
-                category = parsed.category.name,
-                amount = parsed.amount ?: 0.0,
-                quantity = parsed.quantity,
-                quantityUnit = parsed.quantityUnit?.name,
-                description = parsed.description,
-                date = parsed.date ?: System.currentTimeMillis(),
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-
-            expenseRepository.insertExpense(expense)
-        }
+    private suspend fun saveMaintenanceFromForm(vehicleId: String) {
+        val s = _formState.value.maintenanceState
+        val amount = s.amount.toDoubleOrNull() ?: return
+        expenseRepository.create(
+            vehicleId = vehicleId,
+            category = "MAINTENANCE",
+            amount = amount,
+            description = s.description,
+            date = s.date
+        )
     }
 
-    fun saveFuelExpense(
-        vehicleId: String?,
-        fuelType: String,
-        totalPrice: Double,
-        pricePerLiter: Double?,
-        quantity: Double?,
-        odometerKm: Double?,
-        isFullTank: Boolean,
-        gasStationName: String?,
-        gasStationLocation: String?,
-        description: String,
-        date: Long
-    ) {
-        viewModelScope.launch {
-            val actualVehicleId = vehicleId ?: run {
-                val vehiclesList = vehicleRepository.getAllVehicles().first()
-                if (vehiclesList.isNotEmpty()) {
-                    vehiclesList.first().id
-                } else {
-                    val defaultVehicle = com.carflow.app.data.entity.VehicleEntity(
-                        id = UUID.randomUUID().toString(),
-                        name = "Veicolo principale",
-                        make = "",
-                        model = "",
-                        year = null,
-                        licensePlate = "",
-                        odometerKm = 0.0,
-                        fuelType = "",
-                        createdAt = System.currentTimeMillis(),
-                        updatedAt = System.currentTimeMillis()
-                    )
-                    vehicleRepository.insertVehicle(defaultVehicle)
-                    defaultVehicle.id
-                }
-            }
+    private suspend fun saveExtraFromForm(vehicleId: String) {
+        val s = _formState.value.extraState
+        val amount = s.amount.toDoubleOrNull() ?: return
+        expenseRepository.create(
+            vehicleId = vehicleId,
+            category = "EXTRA",
+            amount = amount,
+            description = s.description,
+            date = s.date
+        )
+    }
 
-            expenseRepository.create(
-                vehicleId = actualVehicleId,
-                category = "FUEL",
-                subcategory = fuelType,
-                amount = totalPrice,
-                quantity = quantity,
-                quantityUnit = "LITERS",
-                description = description,
-                date = date,
-                odometerKm = odometerKm,
-                isFullTank = isFullTank,
-                gasStationName = gasStationName,
-                gasStationLocation = gasStationLocation,
-                pricePerLiter = pricePerLiter
-            )
+}
+
+internal fun recalcFuelState(state: FuelFormState): FuelFormState {
+    val total = state.totalPrice.toDoubleOrNull()
+    val price = state.pricePerLiter.toDoubleOrNull()
+    val liters = state.liters.toDoubleOrNull()
+
+    val hasTotal = total != null && total > 0
+    val hasPrice = price != null && price > 0
+    val hasLiters = liters != null && liters > 0
+
+    return when (listOf(hasTotal, hasPrice, hasLiters).count { it }) {
+        2 -> when {
+            hasTotal && hasPrice && !hasLiters ->
+                state.copy(liters = String.format(Locale.US, "%.2f",total!! / price!!))
+            hasTotal && hasLiters && !hasPrice ->
+                state.copy(pricePerLiter = String.format(Locale.US, "%.2f",total!! / liters!!))
+            hasPrice && hasLiters && !hasTotal ->
+                state.copy(totalPrice = String.format(Locale.US, "%.2f",price!! * liters!!))
+            else -> state
         }
+        else -> state
     }
 }
+
+private fun ParsedExpense.toEditable() = EditableExpense(
+    category = category,
+    amount = amount?.toString() ?: "",
+    description = description,
+    date = date ?: System.currentTimeMillis(),
+    fuelType = fuelType,
+    quantityUnit = quantityUnit,
+    quantity = quantity?.toString() ?: "",
+    warnings = warnings
+)

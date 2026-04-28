@@ -15,6 +15,7 @@ JSON schema (all fields required, use null for unknown):
   "amount": null or number,
   "quantity": null or number,
   "quantityUnit": null or "LITERS" or "KWH",
+  "pricePerLiter": null or number,
   "description": "cleaned description string, strip articles and filler words",
   "confidence": "HIGH|MEDIUM|LOW",
   "warnings": ["array of warning strings, empty if none"],

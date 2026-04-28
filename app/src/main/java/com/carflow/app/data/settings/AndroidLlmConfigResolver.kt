@@ -2,6 +2,7 @@ package com.carflow.app.data.settings
 
 import com.carflow.network.llm.LlmConfig
 import com.carflow.network.llm.LlmConfigResolver
+import com.carflow.network.llm.LlmConfigResolver.UnauthenticatedException
 import com.carflow.network.llm.LlmMode
 
 class AndroidLlmConfigResolver(
