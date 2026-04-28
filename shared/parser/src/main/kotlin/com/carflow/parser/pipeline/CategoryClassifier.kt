@@ -2,6 +2,7 @@ package com.carflow.parser.pipeline
 
 import com.carflow.parser.keywords.KeywordDictionary
 import com.carflow.parser.model.ExpenseCategory
+import com.carflow.parser.model.FuelType
 
 /**
  * Third stage: classifies expense category based on extracted words.
@@ -19,8 +20,7 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
         var bestCategory = ExpenseCategory.UNKNOWN
         var bestScore = 0.0
         var matchedKeyword: String? = null
-        // TODO: fuel type detection when implemented
-        // var fuelType: FuelType? = null
+        var detectedFuelType: FuelType? = null
 
         for (word in words) {
             val category = dictionary.getCategoryExact(word)
@@ -43,15 +43,9 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
                 }
             }
 
-            // Fuel type detection disabled until FuelType.fromKeyword is implemented
-            // FuelType.fromKeyword(word)?.let {
-            //     fuelType = it
-            //     if (bestCategory == ExpenseCategory.UNKNOWN) {
-            //         bestCategory = ExpenseCategory.FUEL
-            //         bestScore = 0.9
-            //         matchedKeyword = word
-            //     }
-            // }
+            if (detectedFuelType == null) {
+                detectedFuelType = dictionary.getFuelType(word)
+            }
         }
 
         // Multi-word matching: try bigrams
@@ -68,9 +62,11 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
             }
         }
 
+        val subcategory = if (bestCategory == ExpenseCategory.FUEL) detectedFuelType?.name?.lowercase() else null
+
         return Classification(
             category = bestCategory,
-            subcategory = null, // fuelType?.name?.lowercase(),
+            subcategory = subcategory,
             matchedKeyword = matchedKeyword,
             score = bestScore
         )

@@ -49,8 +49,8 @@ class ExpenseDaoTest {
             description = "Test fuel",
             date = System.currentTimeMillis()
         )
-        expenseDao.insertExpense(expense)
-        val allExpenses = expenseDao.getAllExpenses().first()
+        expenseDao.insert(expense)
+        val allExpenses = expenseDao.getAllActive().first()
         assertTrue(allExpenses.isNotEmpty())
         assertEquals(expense.id, allExpenses.first().id)
     }
@@ -58,7 +58,7 @@ class ExpenseDaoTest {
     @Test
     @Throws(Exception::class)
     fun getAllExpensesReturnsEmptyWhenNoData() = runBlocking {
-        val allExpenses = expenseDao.getAllExpenses().first()
+        val allExpenses = expenseDao.getAllActive().first()
         assertTrue(allExpenses.isEmpty())
     }
 
@@ -72,12 +72,12 @@ class ExpenseDaoTest {
             amount = 100.0,
             description = "Oil change"
         )
-        expenseDao.insertExpense(expense)
-        val allExpenses = expenseDao.getAllExpenses().first()
+        expenseDao.insert(expense)
+        val allExpenses = expenseDao.getAllActive().first()
         assertEquals(1, allExpenses.size)
 
-        expenseDao.deleteExpense(expense)
-        val afterDelete = expenseDao.getAllExpenses().first()
+        expenseDao.softDelete(expense.id)
+        val afterDelete = expenseDao.getAllActive().first()
         assertTrue(afterDelete.isEmpty())
     }
 }

@@ -48,8 +48,8 @@ class VehicleDaoTest {
             model = "500",
             licensePlate = "AB123CD"
         )
-        vehicleDao.insertVehicle(vehicle)
-        val allVehicles = vehicleDao.getAllVehicles().first()
+        vehicleDao.insert(vehicle)
+        val allVehicles = vehicleDao.getAllActive().first()
         assertTrue(allVehicles.isNotEmpty())
         assertEquals(vehicle.id, allVehicles.first().id)
     }
@@ -57,7 +57,7 @@ class VehicleDaoTest {
     @Test
     @Throws(Exception::class)
     fun getAllVehiclesReturnsEmptyWhenNoData() = runBlocking {
-        val allVehicles = vehicleDao.getAllVehicles().first()
+        val allVehicles = vehicleDao.getAllActive().first()
         assertTrue(allVehicles.isEmpty())
     }
 
@@ -68,12 +68,12 @@ class VehicleDaoTest {
             id = UUID.randomUUID().toString(),
             name = "Test Car"
         )
-        vehicleDao.insertVehicle(vehicle)
-        var allVehicles = vehicleDao.getAllVehicles().first()
+        vehicleDao.insert(vehicle)
+        var allVehicles = vehicleDao.getAllActive().first()
         assertEquals(1, allVehicles.size)
 
-        vehicleDao.deleteVehicle(vehicle)
-        allVehicles = vehicleDao.getAllVehicles().first()
+        vehicleDao.softDelete(vehicle.id)
+        allVehicles = vehicleDao.getAllActive().first()
         assertTrue(allVehicles.isEmpty())
     }
 }
