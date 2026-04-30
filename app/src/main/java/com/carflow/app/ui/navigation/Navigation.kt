@@ -33,7 +33,8 @@ fun CarFlowNavHost() {
         }
         composable(Screen.ExpenseInput.route) {
             ExpenseInputScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToVehicle = { navController.navigate(Screen.Vehicle.route) }
             )
         }
         composable(Screen.Stats.route) {

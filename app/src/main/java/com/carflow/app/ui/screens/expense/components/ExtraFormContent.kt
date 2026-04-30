@@ -17,7 +17,8 @@ import java.util.*
 fun ExtraFormContent(
     state: ExtraFormState,
     onStateChange: (ExtraFormState) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    canSave: Boolean = true
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -86,7 +87,7 @@ fun ExtraFormContent(
         Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = amountValid
+            enabled = amountValid && canSave
         ) { Text("Salva spesa extra") }
     }
 }

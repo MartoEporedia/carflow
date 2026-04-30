@@ -15,7 +15,8 @@ fun EditableExpenseCard(
     expense: EditableExpense,
     onExpenseChange: (EditableExpense) -> Unit,
     onConfirm: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    canSave: Boolean = true
 ) {
     val amountValid = expense.amount.toDoubleOrNull()?.let { it > 0 } == true
 
@@ -92,6 +93,17 @@ fun EditableExpenseCard(
                 )
             }
 
+            // Odometer
+            OutlinedTextField(
+                value = expense.odometerKm,
+                onValueChange = { v ->
+                    onExpenseChange(expense.copy(odometerKm = v.filter { it.isDigit() }))
+                },
+                label = { Text("Odometro (km)") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
             // Description
             OutlinedTextField(
                 value = expense.description,
@@ -115,7 +127,7 @@ fun EditableExpenseCard(
             Button(
                 onClick = onConfirm,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = amountValid
+                enabled = amountValid && canSave
             ) {
                 Text("Conferma e Salva")
             }
