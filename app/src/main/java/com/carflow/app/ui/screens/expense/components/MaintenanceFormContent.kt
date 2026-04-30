@@ -17,7 +17,8 @@ import java.util.*
 fun MaintenanceFormContent(
     state: MaintenanceFormState,
     onStateChange: (MaintenanceFormState) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    canSave: Boolean = true
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -86,7 +87,7 @@ fun MaintenanceFormContent(
         Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = amountValid
+            enabled = amountValid && canSave
         ) { Text("Salva manutenzione") }
     }
 }

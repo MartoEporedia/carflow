@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.carflow.app.ui.screens.expense.components.*
 import com.carflow.app.ui.screens.expense.viewmodel.ExpenseInputViewModel
@@ -18,10 +19,15 @@ import com.carflow.parser.model.ExpenseCategory
 @Composable
 fun ExpenseInputScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToVehicle: () -> Unit = {},
     viewModel: ExpenseInputViewModel = hiltViewModel()
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Parser NLP", "Form Manuale")
+
+    val vehicles by viewModel.vehicles.collectAsState()
+    val selectedVehicleId by viewModel.selectedVehicleId.collectAsState()
+    val isVehicleSelected = selectedVehicleId != null
 
     Scaffold(
         topBar = {
@@ -40,6 +46,13 @@ fun ExpenseInputScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            VehicleSelector(
+                vehicles = vehicles,
+                selectedVehicleId = selectedVehicleId,
+                onVehicleSelected = { viewModel.selectVehicle(it) },
+                onAddVehicleClicked = onNavigateToVehicle
+            )
+
             TabRow(selectedTabIndex = selectedTabIndex) {
                 tabs.forEachIndexed { index, title ->
                     Tab(
@@ -53,15 +66,15 @@ fun ExpenseInputScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             when (selectedTabIndex) {
-                0 -> NlpTabContent(viewModel)
-                1 -> FormTabContent(viewModel)
+                0 -> NlpTabContent(viewModel, isVehicleSelected)
+                1 -> FormTabContent(viewModel, isVehicleSelected)
             }
         }
     }
 }
 
 @Composable
-private fun NlpTabContent(viewModel: ExpenseInputViewModel) {
+private fun NlpTabContent(viewModel: ExpenseInputViewModel, isVehicleSelected: Boolean) {
     val nlpState by viewModel.nlpState.collectAsState()
 
     Column(
@@ -74,36 +87,21 @@ private fun NlpTabContent(viewModel: ExpenseInputViewModel) {
             value = nlpState.inputText,
             onValueChange = { viewModel.updateNlpInput(it) },
             label = { Text("Descrivi la spesa") },
-            placeholder = { Text("Es: benzina 50€ 30L o tagliando 200€") },
+            placeholder = { Text("Es: benzina 50€ 30L 45000km") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3
         )
 
-        Button(
-            onClick = { viewModel.parseExpense() },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = nlpState.inputText.isNotBlank() && !nlpState.isParsing
-        ) {
-            if (nlpState.isParsing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Analisi in corso...")
-            } else {
-                Text("Analizza")
-            }
-        }
-
-        nlpState.editedExpense?.let { expense ->
-            EditableExpenseCard(
-                expense = expense,
+        val editedExpense = nlpState.editedExpense
+        when {
+            editedExpense != null -> EditableExpenseCard(
+                expense = editedExpense,
                 onExpenseChange = { viewModel.updateEditedExpense(it) },
                 onConfirm = { viewModel.confirmParsedExpense() },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                canSave = isVehicleSelected
             )
+            nlpState.isParsing -> LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
         nlpState.saveResult?.let { result ->
@@ -120,13 +118,12 @@ private fun NlpTabContent(viewModel: ExpenseInputViewModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormTabContent(viewModel: ExpenseInputViewModel) {
+private fun FormTabContent(viewModel: ExpenseInputViewModel, isVehicleSelected: Boolean) {
     val formState by viewModel.formState.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Category selector
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -149,27 +146,28 @@ private fun FormTabContent(viewModel: ExpenseInputViewModel) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Category-specific form
         when (formState.selectedCategory) {
             ExpenseCategory.FUEL -> FuelFormContent(
                 state = formState.fuelState,
                 onStateChange = { viewModel.updateFuelForm(it) },
-                onSave = { viewModel.saveFormExpense() }
+                onSave = { viewModel.saveFormExpense() },
+                canSave = isVehicleSelected
             )
             ExpenseCategory.MAINTENANCE -> MaintenanceFormContent(
                 state = formState.maintenanceState,
                 onStateChange = { viewModel.updateMaintenanceForm(it) },
-                onSave = { viewModel.saveFormExpense() }
+                onSave = { viewModel.saveFormExpense() },
+                canSave = isVehicleSelected
             )
             ExpenseCategory.EXTRA -> ExtraFormContent(
                 state = formState.extraState,
                 onStateChange = { viewModel.updateExtraForm(it) },
-                onSave = { viewModel.saveFormExpense() }
+                onSave = { viewModel.saveFormExpense() },
+                canSave = isVehicleSelected
             )
             else -> {}
         }
 
-        // Unified save feedback
         formState.saveResult?.let { result ->
             SaveResultBanner(
                 result = result,
