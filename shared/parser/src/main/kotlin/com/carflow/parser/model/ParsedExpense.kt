@@ -9,6 +9,7 @@ data class ParsedExpense(
     val amount: Double? = null,
     val quantity: Double? = null,
     val quantityUnit: QuantityUnit? = null,
+    val pricePerLiter: Double? = null,
     val description: String = "",
     val confidence: ParseConfidence = ParseConfidence.HIGH,
     val warnings: List<String> = emptyList(),
