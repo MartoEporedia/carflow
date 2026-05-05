@@ -3,28 +3,26 @@ package com.carflow.app.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.carflow.app.CarFlowApplication
+import com.carflow.app.ui.navigation.CarFlowNavHost
+import com.carflow.app.ui.theme.CarFlowTheme
 import dagger.hilt.android.AndroidEntryPoint
-import com.carflow.app.ui.navigation.CarflowNavGraph
-import com.carflow.app.ui.theme.CarflowTheme
-import com.carflow.app.ui.theme.carflowColors
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContent {
-            CarflowTheme(darkTheme = true) {
-                androidx.compose.foundation.layout.Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(carflowColors.bg),
+            CarFlowTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
                 ) {
-                    CarflowNavGraph()
+                    CarFlowNavHost()
                 }
             }
         }

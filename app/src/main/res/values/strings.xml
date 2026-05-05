@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">CarFlow</string>
+    <string name="expense_list">Spese</string>
+    <string name="add_expense">Aggiungi spesa</string>
+    <string name="statistics">Statistiche</string>
+    <string name="vehicles">Veicoli</string>
+    <string name="no_expenses">Nessuna spesa registrata</string>
+    <string name="tap_to_add">Tocca + per aggiungere</string>
+    <string name="analyze">Analizza</string>
+    <string name="confirm_save">Conferma e Salva</string>
+    <string name="saved">Spesa salvata!</string>
+    <string name="category">Categoria</string>
+    <string name="amount">Importo</string>
+    <string name="quantity">Quantità</string>
+    <string name="date">Data</string>
+    <string name="parsing_result">Risultato Analisi</string>
+    <string name="vehicle_management">Gestione veicoli</string>
+    <string name="stats_in_development">Statistiche in sviluppo</string>
 </resources>

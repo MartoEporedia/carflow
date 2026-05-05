@@ -20,12 +20,11 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
         var bestCategory = ExpenseCategory.UNKNOWN
         var bestScore = 0.0
         var matchedKeyword: String? = null
-        var fuelType: FuelType? = null
+        var detectedFuelType: FuelType? = null
 
         for (word in words) {
             val category = dictionary.getCategoryExact(word)
             if (category != ExpenseCategory.UNKNOWN) {
-                // Exact match gets highest score
                 val score = 1.0
                 if (score > bestScore) {
                     bestScore = score
@@ -33,7 +32,6 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
                     matchedKeyword = word
                 }
             } else {
-                // Try partial match
                 val partialCategory = dictionary.getCategory(word)
                 if (partialCategory != ExpenseCategory.UNKNOWN) {
                     val score = 0.7
@@ -45,14 +43,8 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
                 }
             }
 
-            // Check fuel type
-            FuelType.fromKeyword(word)?.let {
-                fuelType = it
-                if (bestCategory == ExpenseCategory.UNKNOWN) {
-                    bestCategory = ExpenseCategory.FUEL
-                    bestScore = 0.9
-                    matchedKeyword = word
-                }
+            if (detectedFuelType == null) {
+                detectedFuelType = dictionary.getFuelType(word)
             }
         }
 
@@ -70,9 +62,11 @@ class CategoryClassifier(private val dictionary: KeywordDictionary) {
             }
         }
 
+        val subcategory = if (bestCategory == ExpenseCategory.FUEL) detectedFuelType?.name?.lowercase() else null
+
         return Classification(
             category = bestCategory,
-            subcategory = fuelType?.name?.lowercase(),
+            subcategory = subcategory,
             matchedKeyword = matchedKeyword,
             score = bestScore
         )
