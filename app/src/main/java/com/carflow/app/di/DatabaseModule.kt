@@ -8,6 +8,7 @@ import com.carflow.app.data.dao.VehicleDao
 import com.carflow.app.data.database.CarFlowDatabase
 import com.carflow.app.data.repository.ExpenseRepository
 import com.carflow.app.data.repository.VehicleRepository
+import com.carflow.app.data.settings.VehiclePreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -45,7 +46,14 @@ object DatabaseModule {
     }
 
     @Provides
-    fun provideVehicleRepository(vehicleDao: VehicleDao): VehicleRepository {
-        return VehicleRepository(vehicleDao)
+    fun provideVehicleRepository(vehicleDao: VehicleDao, expenseDao: ExpenseDao): VehicleRepository {
+        return VehicleRepository(vehicleDao, expenseDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVehiclePreferences(@ApplicationContext ctx: Context): VehiclePreferences {
+        return VehiclePreferences(ctx)
+    }
     }
 }

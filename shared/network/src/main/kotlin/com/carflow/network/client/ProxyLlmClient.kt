@@ -25,6 +25,14 @@ data class ProxyParseResponse(
     val json: String
 )
 
+@Serializable
+data class ProxyImageParseRequest(
+    val systemPrompt: String,
+    val userPrompt: String,
+    val imageBase64: String,
+    val mimeType: String
+)
+
 class ProxyLlmClient(
     private val config: LlmConfig.Proxy
 ) : LlmClient {
@@ -43,6 +51,21 @@ class ProxyLlmClient(
         install(Logging) {
             level = LogLevel.NONE
         }
+    }
+
+    override suspend fun chatWithImage(
+        systemPrompt: String,
+        userPrompt: String,
+        imageBase64: String,
+        mimeType: String
+    ): String {
+        val response = httpClient.post("${config.baseUrl}/api/parse-image") {
+            contentType(ContentType.Application.Json)
+            header("Authorization", "Bearer ${config.authToken}")
+            setBody(ProxyImageParseRequest(systemPrompt, userPrompt, imageBase64, mimeType))
+        }
+        val body = response.body<ProxyParseResponse>()
+        return body.json
     }
 
     override suspend fun chat(systemPrompt: String, userPrompt: String): String {

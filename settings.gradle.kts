@@ -1,6 +1,6 @@
 pluginManagement {
     repositories {
-        maven { url = uri("https://maven.google.com") }
+        google()
         mavenCentral()
         gradlePluginPortal()
     }
@@ -9,7 +9,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        maven { url = uri("https://maven.google.com") }
+        google()
         mavenCentral()
     }
 }
@@ -17,5 +17,4 @@ dependencyResolutionManagement {
 rootProject.name = "CarFlow"
 include(":app")
 include(":shared:parser")
-include(":shared:network")
 include(":shared:network")
