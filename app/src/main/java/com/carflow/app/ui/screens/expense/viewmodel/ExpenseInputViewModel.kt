@@ -355,6 +355,5 @@ private fun ParsedExpense.toEditable() = EditableExpense(
     fuelType = fuelType,
     quantityUnit = quantityUnit,
     quantity = quantity?.toString() ?: "",
-    odometerKm = odometerKm?.toLong()?.toString() ?: "",
     warnings = warnings
 )

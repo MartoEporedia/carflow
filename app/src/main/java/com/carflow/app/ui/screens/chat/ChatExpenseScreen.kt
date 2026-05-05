@@ -27,7 +27,8 @@ import com.carflow.app.ui.screens.chat.components.*
 import com.carflow.app.ui.screens.chat.viewmodel.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -288,6 +289,8 @@ private fun scaleBitmap(bitmap: Bitmap, maxDimension: Int): Bitmap {
     return Bitmap.createScaledBitmap(bitmap, (w * scale).toInt(), (h * scale).toInt(), true)
 }
 
+private val emptySharedFlow = MutableSharedFlow<Unit>(extraBufferCapacity = 0)
+
 // --- Previews ---
 
 @Preview(showBackground = true, name = "Chat — Idle")
@@ -296,7 +299,7 @@ private fun ChatIdlePreview() {
     ChatExpenseContent(
         uiState = ChatUiState(),
         vehicles = emptyList(),
-        navigateToVehicleFlow = emptyFlow(),
+        navigateToVehicleFlow = emptySharedFlow,
         onTextChanged = {}, onSendText = {}, onFollowUpAnswer = {},
         onImageSelected = { _, _ -> }, onDraftChanged = {},
         onSaveConfirmed = {}, onDiscardConversation = {},
@@ -318,7 +321,7 @@ private fun ChatAwaitingPreview() {
             )
         ),
         vehicles = listOf(VehicleEntity("v1", "Fiat Panda")),
-        navigateToVehicleFlow = emptyFlow(),
+        navigateToVehicleFlow = emptySharedFlow,
         onTextChanged = {}, onSendText = {}, onFollowUpAnswer = {},
         onImageSelected = { _, _ -> }, onDraftChanged = {},
         onSaveConfirmed = {}, onDiscardConversation = {},
@@ -337,7 +340,7 @@ private fun ChatProcessingPreview() {
             conversationState = ConversationState.Processing
         ),
         vehicles = emptyList(),
-        navigateToVehicleFlow = emptyFlow(),
+        navigateToVehicleFlow = emptySharedFlow,
         onTextChanged = {}, onSendText = {}, onFollowUpAnswer = {},
         onImageSelected = { _, _ -> }, onDraftChanged = {},
         onSaveConfirmed = {}, onDiscardConversation = {},
@@ -356,7 +359,7 @@ private fun ChatSavedPreview() {
             conversationState = ConversationState.Saved
         ),
         vehicles = emptyList(),
-        navigateToVehicleFlow = emptyFlow(),
+        navigateToVehicleFlow = emptySharedFlow,
         onTextChanged = {}, onSendText = {}, onFollowUpAnswer = {},
         onImageSelected = { _, _ -> }, onDraftChanged = {},
         onSaveConfirmed = {}, onDiscardConversation = {},
@@ -378,7 +381,7 @@ private fun ChatConfirmingPreview() {
             )
         ),
         vehicles = listOf(VehicleEntity("v1", "Fiat Panda")),
-        navigateToVehicleFlow = emptyFlow(),
+        navigateToVehicleFlow = emptySharedFlow,
         onTextChanged = {}, onSendText = {}, onFollowUpAnswer = {},
         onImageSelected = { _, _ -> }, onDraftChanged = {},
         onSaveConfirmed = {}, onDiscardConversation = {},
