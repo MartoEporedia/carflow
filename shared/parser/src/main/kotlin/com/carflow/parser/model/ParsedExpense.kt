@@ -33,7 +33,6 @@ enum class QuantityUnit {
 }
 
 @Serializable
-@Serializable
 enum class FuelType {
     PETROL,
     DIESEL,
