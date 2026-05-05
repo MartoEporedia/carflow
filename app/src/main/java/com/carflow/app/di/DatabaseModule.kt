@@ -55,5 +55,4 @@ object DatabaseModule {
     fun provideVehiclePreferences(@ApplicationContext ctx: Context): VehiclePreferences {
         return VehiclePreferences(ctx)
     }
-    }
 }
