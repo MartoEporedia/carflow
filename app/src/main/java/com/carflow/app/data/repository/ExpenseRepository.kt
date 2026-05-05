@@ -30,7 +30,11 @@ class ExpenseRepository @Inject constructor(
         quantityUnit: String? = null,
         description: String = "",
         date: Long = System.currentTimeMillis(),
-        odometerKm: Double? = null
+        odometerKm: Double? = null,
+        isFullTank: Boolean = false,
+        gasStationName: String? = null,
+        gasStationLocation: String? = null,
+        pricePerLiter: Double? = null
     ): ExpenseEntity {
         val expense = ExpenseEntity(
             id = UUID.randomUUID().toString(),
@@ -42,7 +46,11 @@ class ExpenseRepository @Inject constructor(
             quantityUnit = quantityUnit,
             description = description,
             date = date,
-            odometerKm = odometerKm
+            odometerKm = odometerKm,
+            isFullTank = isFullTank,
+            gasStationName = gasStationName,
+            gasStationLocation = gasStationLocation,
+            pricePerLiter = pricePerLiter
         )
         expenseDao.insert(expense)
         return expense
@@ -64,4 +72,14 @@ class ExpenseRepository @Inject constructor(
 
     suspend fun getTotalAmount(vehicleId: String, startDate: Long, endDate: Long): Double =
         expenseDao.getTotalAmount(vehicleId, startDate, endDate) ?: 0.0
+
+    fun getAllExpenses(): Flow<List<ExpenseEntity>> = getAllActive()
+
+    suspend fun insertExpense(expense: ExpenseEntity) {
+        expenseDao.insert(expense)
+    }
+
+    suspend fun deleteExpense(expense: ExpenseEntity) {
+        delete(expense.id)
+    }
 }

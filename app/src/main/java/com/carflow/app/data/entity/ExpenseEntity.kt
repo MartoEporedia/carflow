@@ -36,6 +36,10 @@ data class ExpenseEntity(
     val description: String = "",
     val date: Long = System.currentTimeMillis(),
     val odometerKm: Double? = null,
+    val isFullTank: Boolean = false,
+    val gasStationName: String? = null,
+    val gasStationLocation: String? = null,
+    val pricePerLiter: Double? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val isDeleted: Boolean = false

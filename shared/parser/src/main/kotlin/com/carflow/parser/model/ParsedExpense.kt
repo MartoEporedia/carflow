@@ -9,9 +9,13 @@ data class ParsedExpense(
     val amount: Double? = null,
     val quantity: Double? = null,
     val quantityUnit: QuantityUnit? = null,
+    val pricePerLiter: Double? = null,
     val description: String = "",
     val confidence: ParseConfidence = ParseConfidence.HIGH,
-    val warnings: List<String> = emptyList()
+    val warnings: List<String> = emptyList(),
+    val rawInput: String = "",
+    val date: Long? = null,
+    val fuelType: FuelType? = null
 )
 
 @Serializable
@@ -26,6 +30,17 @@ enum class ExpenseCategory {
 enum class QuantityUnit {
     LITERS,
     KWH
+}
+
+@Serializable
+@Serializable
+enum class FuelType {
+    PETROL,
+    DIESEL,
+    LPG,
+    CNG,
+    ELECTRIC,
+    HYBRID
 }
 
 @Serializable

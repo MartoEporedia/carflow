@@ -6,6 +6,9 @@ import com.carflow.app.data.dao.CategoryDao
 import com.carflow.app.data.dao.ExpenseDao
 import com.carflow.app.data.dao.VehicleDao
 import com.carflow.app.data.database.CarFlowDatabase
+import com.carflow.app.data.repository.ExpenseRepository
+import com.carflow.app.data.repository.VehicleRepository
+import com.carflow.app.data.settings.VehiclePreferences
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,7 +27,8 @@ object DatabaseModule {
             context,
             CarFlowDatabase::class.java,
             "carflow.db"
-        ).build()
+        ).addMigrations(CarFlowDatabase.MIGRATION_1_2)
+         .build()
     }
 
     @Provides
@@ -35,4 +39,20 @@ object DatabaseModule {
 
     @Provides
     fun provideCategoryDao(database: CarFlowDatabase): CategoryDao = database.categoryDao()
+
+    @Provides
+    fun provideExpenseRepository(expenseDao: ExpenseDao): ExpenseRepository {
+        return ExpenseRepository(expenseDao)
+    }
+
+    @Provides
+    fun provideVehicleRepository(vehicleDao: VehicleDao, expenseDao: ExpenseDao): VehicleRepository {
+        return VehicleRepository(vehicleDao, expenseDao)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVehiclePreferences(@ApplicationContext ctx: Context): VehiclePreferences {
+        return VehiclePreferences(ctx)
+    }
 }

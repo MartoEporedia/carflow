@@ -1,5 +1,6 @@
 package com.carflow.app.data.repository
 
+import com.carflow.app.data.dao.ExpenseDao
 import com.carflow.app.data.dao.VehicleDao
 import com.carflow.app.data.entity.VehicleEntity
 import kotlinx.coroutines.flow.Flow
@@ -9,7 +10,8 @@ import javax.inject.Singleton
 
 @Singleton
 class VehicleRepository @Inject constructor(
-    private val vehicleDao: VehicleDao
+    private val vehicleDao: VehicleDao,
+    private val expenseDao: ExpenseDao
 ) {
     fun getAllActive(): Flow<List<VehicleEntity>> = vehicleDao.getAllActive()
 
@@ -21,7 +23,8 @@ class VehicleRepository @Inject constructor(
         model: String = "",
         year: Int? = null,
         licensePlate: String = "",
-        fuelType: String = ""
+        fuelType: String = "",
+        odometerKm: Double = 0.0
     ): VehicleEntity {
         val vehicle = VehicleEntity(
             id = UUID.randomUUID().toString(),
@@ -30,6 +33,7 @@ class VehicleRepository @Inject constructor(
             model = model,
             year = year,
             licensePlate = licensePlate,
+            odometerKm = odometerKm,
             fuelType = fuelType
         )
         vehicleDao.insert(vehicle)
@@ -45,4 +49,13 @@ class VehicleRepository @Inject constructor(
     }
 
     suspend fun count(): Int = vehicleDao.count()
+
+    fun getAllVehicles(): Flow<List<VehicleEntity>> = getAllActive()
+
+    suspend fun insertVehicle(vehicle: VehicleEntity) {
+        vehicleDao.insert(vehicle)
+    }
+
+    suspend fun hasExpenses(vehicleId: String): Boolean =
+        expenseDao.countByVehicleId(vehicleId) > 0
 }

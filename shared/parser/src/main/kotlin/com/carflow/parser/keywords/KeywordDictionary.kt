@@ -66,9 +66,23 @@ class KeywordDictionary {
         return ExpenseCategory.UNKNOWN
     }
 
+    private val fuelTypeKeywords: Map<FuelType, Set<String>> = mapOf(
+        FuelType.PETROL to setOf("benzina", "petrol", "gasoline", "super", "verde", "unleaded"),
+        FuelType.DIESEL to setOf("diesel", "gasolio", "nafta"),
+        FuelType.LPG to setOf("gpl", "lpg"),
+        FuelType.CNG to setOf("metano", "cng"),
+        FuelType.ELECTRIC to setOf("ricarica", "elettrico", "elettrica", "electric", "charging", "charge"),
+        FuelType.HYBRID to setOf("ibrido", "ibrida", "hybrid")
+    )
+
     fun getFuelType(keyword: String): FuelType? {
-        return FuelType.fromKeyword(keyword)
+        val lower = keyword.lowercase().trim()
+        for ((fuelType, keywords) in fuelTypeKeywords) {
+            if (lower in keywords) return fuelType
+        }
+        return null
     }
+
 
     fun addKeywords(category: ExpenseCategory, keywords: Collection<String>) {
         categoryKeywords.getOrPut(category) { mutableSetOf() }
