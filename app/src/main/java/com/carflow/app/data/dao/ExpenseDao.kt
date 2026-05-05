@@ -58,6 +58,9 @@ interface ExpenseDao {
 
     @Query("SELECT * FROM expenses WHERE updatedAt > :since")
     suspend fun getModifiedSince(since: Long): List<ExpenseEntity>
+
+    @Query("SELECT COUNT(*) FROM expenses WHERE vehicleId = :vehicleId AND isDeleted = 0")
+    suspend fun countByVehicleId(vehicleId: String): Int
 }
 
 data class CategoryTotal(

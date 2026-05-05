@@ -19,7 +19,8 @@ import java.util.*
 fun FuelFormContent(
     state: FuelFormState,
     onStateChange: (FuelFormState) -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    canSave: Boolean = true
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -169,7 +170,7 @@ fun FuelFormContent(
         Button(
             onClick = onSave,
             modifier = Modifier.fillMaxWidth(),
-            enabled = isSaveEnabled
+            enabled = isSaveEnabled && canSave
         ) { Text("Salva carburante") }
     }
 }

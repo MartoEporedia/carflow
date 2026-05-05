@@ -6,6 +6,7 @@ import com.carflow.app.data.entity.VehicleEntity
 import com.carflow.app.data.repository.ExpenseRepository
 import com.carflow.app.data.repository.VehicleRepository
 import com.carflow.app.data.settings.LlmSettings
+import com.carflow.app.data.settings.VehiclePreferences
 import com.carflow.network.llm.ExpenseParserStrategy
 import com.carflow.network.llm.LlmMode
 import com.carflow.parser.ExpenseParser
@@ -17,10 +18,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.Locale
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Named
 
@@ -39,6 +42,7 @@ data class EditableExpense(
     val fuelType: FuelType?,
     val quantityUnit: QuantityUnit?,
     val quantity: String,
+    val odometerKm: String = "",
     val warnings: List<String>
 )
 
@@ -88,7 +92,8 @@ class ExpenseInputViewModel @Inject constructor(
     @Named("llm") private val llmParser: ExpenseParserStrategy,
     private val llmSettings: LlmSettings,
     private val expenseRepository: ExpenseRepository,
-    private val vehicleRepository: VehicleRepository
+    private val vehicleRepository: VehicleRepository,
+    private val vehiclePreferences: VehiclePreferences
 ) : ViewModel() {
 
     private val _nlpState = MutableStateFlow(NlpTabState())
@@ -100,20 +105,68 @@ class ExpenseInputViewModel @Inject constructor(
     private val _vehicles = MutableStateFlow<List<VehicleEntity>>(emptyList())
     val vehicles: StateFlow<List<VehicleEntity>> = _vehicles.asStateFlow()
 
+    private val _selectedVehicleId = MutableStateFlow<String?>(null)
+    val selectedVehicleId: StateFlow<String?> = _selectedVehicleId.asStateFlow()
+
     init {
         loadVehicles()
+        restoreLastUsedVehicle()
+        viewModelScope.launch {
+            _nlpState
+                .map { it.inputText }
+                .distinctUntilChanged()
+                .debounce(500L)
+                .collect { input ->
+                    if (input.isNotBlank()) autoParse(input)
+                }
+        }
     }
 
     private fun loadVehicles() {
         viewModelScope.launch {
-            vehicleRepository.getAllVehicles().collect { _vehicles.value = it }
+            vehicleRepository.getAllVehicles().collect { list ->
+                _vehicles.value = list
+                // Guard: reset selection if the selected vehicle was deleted while the app is running
+                val currentId = _selectedVehicleId.value
+                if (currentId != null && list.none { it.id == currentId }) {
+                    _selectedVehicleId.value = null
+                    vehiclePreferences.setLastUsedVehicleId("")
+                }
+            }
+        }
+    }
+
+    private fun restoreLastUsedVehicle() {
+        viewModelScope.launch {
+            val storedId = vehiclePreferences.getLastUsedVehicleId() ?: return@launch
+            val list = vehicleRepository.getAllVehicles().first()
+            if (list.any { it.id == storedId }) {
+                _selectedVehicleId.value = storedId
+            }
+        }
+    }
+
+    fun selectVehicle(id: String) {
+        _selectedVehicleId.value = id
+    }
+
+    private suspend fun autoParse(input: String) {
+        _nlpState.value = _nlpState.value.copy(isParsing = true)
+        try {
+            val result = getActiveParser().parse(input)
+            _nlpState.value = _nlpState.value.copy(isParsing = false, editedExpense = result.toEditable())
+        } catch (e: Exception) {
+            _nlpState.value = _nlpState.value.copy(isParsing = false)
         }
     }
 
     // --- NLP commands ---
 
     fun updateNlpInput(text: String) {
-        _nlpState.value = _nlpState.value.copy(inputText = text)
+        _nlpState.value = _nlpState.value.copy(
+            inputText = text,
+            editedExpense = if (text.isBlank()) null else _nlpState.value.editedExpense
+        )
     }
 
     fun parseExpense() {
@@ -143,9 +196,9 @@ class ExpenseInputViewModel @Inject constructor(
     fun confirmParsedExpense() {
         val expense = _nlpState.value.editedExpense ?: return
         val amount = expense.amount.toDoubleOrNull() ?: return
+        val vehicleId = _selectedVehicleId.value ?: return
         viewModelScope.launch {
             try {
-                val vehicleId = resolveVehicleId()
                 expenseRepository.create(
                     vehicleId = vehicleId,
                     category = expense.category.name,
@@ -154,8 +207,10 @@ class ExpenseInputViewModel @Inject constructor(
                     quantity = expense.quantity.toDoubleOrNull(),
                     quantityUnit = expense.quantityUnit?.name,
                     description = expense.description,
-                    date = expense.date
+                    date = expense.date,
+                    odometerKm = expense.odometerKm.toDoubleOrNull()
                 )
+                vehiclePreferences.setLastUsedVehicleId(vehicleId)
                 _nlpState.value = NlpTabState(saveResult = SaveResult.Success)
             } catch (e: Exception) {
                 _nlpState.value = _nlpState.value.copy(
@@ -188,15 +243,16 @@ class ExpenseInputViewModel @Inject constructor(
     }
 
     fun saveFormExpense() {
+        val vehicleId = _selectedVehicleId.value ?: return
         viewModelScope.launch {
             try {
-                val vehicleId = resolveVehicleId()
                 when (_formState.value.selectedCategory) {
                     ExpenseCategory.FUEL -> saveFuelFromForm(vehicleId)
                     ExpenseCategory.MAINTENANCE -> saveMaintenanceFromForm(vehicleId)
                     ExpenseCategory.EXTRA -> saveExtraFromForm(vehicleId)
                     ExpenseCategory.UNKNOWN -> return@launch
                 }
+                vehiclePreferences.setLastUsedVehicleId(vehicleId)
                 _formState.value = FormTabState(saveResult = SaveResult.Success)
             } catch (e: Exception) {
                 _formState.value = _formState.value.copy(
@@ -211,24 +267,6 @@ class ExpenseInputViewModel @Inject constructor(
     }
 
     // --- Private helpers ---
-
-    private suspend fun resolveVehicleId(): String {
-        val list = vehicleRepository.getAllVehicles().first()
-        return if (list.isNotEmpty()) {
-            list.first().id
-        } else {
-            val vehicle = VehicleEntity(
-                id = UUID.randomUUID().toString(),
-                name = "Veicolo principale",
-                make = "", model = "", year = null,
-                licensePlate = "", odometerKm = 0.0, fuelType = "",
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            vehicleRepository.insertVehicle(vehicle)
-            vehicle.id
-        }
-    }
 
     private suspend fun getActiveParser(): ExpenseParserStrategy {
         return if (llmSettings.getMode() == LlmMode.DIRECT && llmSettings.hasDirectConfig()) {
@@ -284,7 +322,6 @@ class ExpenseInputViewModel @Inject constructor(
             date = s.date
         )
     }
-
 }
 
 internal fun recalcFuelState(state: FuelFormState): FuelFormState {
@@ -299,11 +336,11 @@ internal fun recalcFuelState(state: FuelFormState): FuelFormState {
     return when (listOf(hasTotal, hasPrice, hasLiters).count { it }) {
         2 -> when {
             hasTotal && hasPrice && !hasLiters ->
-                state.copy(liters = String.format(Locale.US, "%.2f",total!! / price!!))
+                state.copy(liters = String.format(Locale.US, "%.2f", total!! / price!!))
             hasTotal && hasLiters && !hasPrice ->
-                state.copy(pricePerLiter = String.format(Locale.US, "%.2f",total!! / liters!!))
+                state.copy(pricePerLiter = String.format(Locale.US, "%.2f", total!! / liters!!))
             hasPrice && hasLiters && !hasTotal ->
-                state.copy(totalPrice = String.format(Locale.US, "%.2f",price!! * liters!!))
+                state.copy(totalPrice = String.format(Locale.US, "%.2f", price!! * liters!!))
             else -> state
         }
         else -> state

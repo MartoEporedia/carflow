@@ -17,12 +17,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
+import javax.inject.Named
 
 @HiltViewModel
 class CarflowViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val vehicleRepository: VehicleRepository,
-    private val parser: ExpenseParser,
+    @Named("default") private val parser: ExpenseParser,
 ) : ViewModel() {
 
     val vehicles: StateFlow<List<VehicleEntity>> = vehicleRepository
