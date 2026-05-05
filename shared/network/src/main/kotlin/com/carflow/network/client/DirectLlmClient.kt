@@ -14,6 +14,12 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+import kotlinx.serialization.json.add
 
 @Serializable
 data class OpenAIMessage(
@@ -77,6 +83,113 @@ class DirectLlmClient(
         install(Logging) {
             level = LogLevel.NONE
         }
+    }
+
+    override suspend fun chatWithImage(
+        systemPrompt: String,
+        userPrompt: String,
+        imageBase64: String,
+        mimeType: String
+    ): String {
+        val provider = config.provider
+        val url = provider.endpoint
+        val response = when (provider) {
+            is LlmProvider.Anthropic -> chatWithImageAnthropic(url, systemPrompt, userPrompt, imageBase64, mimeType)
+            is LlmProvider.OllamaCloud -> throw UnsupportedOperationException("Image analysis not supported for OllamaCloud provider")
+            else -> chatWithImageOpenAI(url, systemPrompt, userPrompt, imageBase64, mimeType)
+        }
+        return extractContent(response, provider)
+    }
+
+    private suspend fun chatWithImageOpenAI(
+        url: String,
+        system: String,
+        user: String,
+        imageBase64: String,
+        mimeType: String
+    ): String {
+        val body = buildJsonObject {
+            put("model", config.model)
+            put("temperature", config.temperature)
+            put("max_tokens", config.maxTokens)
+            putJsonArray("messages") {
+                add(buildJsonObject {
+                    put("role", "system")
+                    put("content", system)
+                })
+                add(buildJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        add(buildJsonObject {
+                            put("type", "image_url")
+                            putJsonObject("image_url") {
+                                put("url", "data:$mimeType;base64,$imageBase64")
+                            }
+                        })
+                        add(buildJsonObject {
+                            put("type", "text")
+                            put("text", user)
+                        })
+                    }
+                })
+            }
+        }
+        val authHeader = when (config.provider) {
+            is LlmProvider.OpenRouter -> {
+                return httpClient.post(url) {
+                    contentType(ContentType.Application.Json)
+                    header("Authorization", "Bearer ${config.apiKey}")
+                    header("HTTP-Referer", "https://carflow.app")
+                    header("X-Title", "CarFlow")
+                    setBody(body.toString())
+                }.bodyAsText()
+            }
+            else -> "Bearer ${config.apiKey}"
+        }
+        return httpClient.post(url) {
+            contentType(ContentType.Application.Json)
+            header("Authorization", authHeader)
+            setBody(body.toString())
+        }.bodyAsText()
+    }
+
+    private suspend fun chatWithImageAnthropic(
+        url: String,
+        system: String,
+        user: String,
+        imageBase64: String,
+        mimeType: String
+    ): String {
+        val body = buildJsonObject {
+            put("model", config.model)
+            put("system", system)
+            put("max_tokens", config.maxTokens)
+            putJsonArray("messages") {
+                add(buildJsonObject {
+                    put("role", "user")
+                    putJsonArray("content") {
+                        add(buildJsonObject {
+                            put("type", "image")
+                            putJsonObject("source") {
+                                put("type", "base64")
+                                put("media_type", mimeType)
+                                put("data", imageBase64)
+                            }
+                        })
+                        add(buildJsonObject {
+                            put("type", "text")
+                            put("text", user)
+                        })
+                    }
+                })
+            }
+        }
+        return httpClient.post(url) {
+            contentType(ContentType.Application.Json)
+            header("x-api-key", config.apiKey)
+            header("anthropic-version", "2023-06-01")
+            setBody(body.toString())
+        }.bodyAsText()
     }
 
     override suspend fun chat(systemPrompt: String, userPrompt: String): String {

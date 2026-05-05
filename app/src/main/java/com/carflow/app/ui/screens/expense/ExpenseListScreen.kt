@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,7 +25,8 @@ import com.carflow.app.ui.screens.expense.viewmodel.ExpenseListViewModel
 fun ExpenseListScreen(
     onNavigateToInput: () -> Unit,
     onNavigateToStats: () -> Unit,
-    onNavigateToVehicle: () -> Unit
+    onNavigateToVehicle: () -> Unit,
+    onNavigateToChat: () -> Unit = {}
 ) {
     val viewModel: ExpenseListViewModel = hiltViewModel()
     val expenses by viewModel.expenses.collectAsState()
@@ -34,6 +36,9 @@ fun ExpenseListScreen(
             TopAppBar(
                 title = { Text("CarFlow") },
                 actions = {
+                    IconButton(onClick = onNavigateToChat) {
+                        Icon(Icons.Default.Chat, contentDescription = "Spesa rapida")
+                    }
                     IconButton(onClick = onNavigateToStats) {
                         Icon(Icons.Default.BarChart, contentDescription = "Statistiche")
                     }
